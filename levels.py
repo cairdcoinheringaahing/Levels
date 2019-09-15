@@ -1,11 +1,79 @@
 import argparse
 import itertools
+import math
 import random
 import sys
 
 commands = {
 
+	'.':(0, lambda code: code),
+
+	'→': (0,
+		lambda code: code.set_delta((1, 0, 0))
+	),
+	'←': (0,
+		lambda code: code.set_delta((-1, 0, 0))
+	),
+	'↓': (0,
+		lambda code: code.set_delta((0, 1, 0))
+	),
+	'↑': (0,
+		lambda code: code.set_delta((0, -1, 0))
+	),
+	'↖': (0,
+		lambda code: code.set_delta((-1, -1, 0))
+	),
+	'↗': (0,
+		lambda code: code.set_delta((1, -1, 0))
+	),
+	'↘': (0,
+		lambda code: code.set_delta((1, 1, 0))
+	),
+	'↙': (0,
+		lambda code: code.set_delta((-1, 1, 0))
+	),
+	'⇑': (0,
+		lambda code: code.set_delta((0, 0, -1))
+	),
+	'⇓': (0,
+		lambda code: code.set_delta((0, 0, 1))
+	),
+	'/': (0,
+		lambda code: code.mirror('/')
+	),
+	'\\':(0,
+		lambda code: code.mirror('\\')
+	),
+	'↕': (0,
+		lambda code: code.mirror('↕')
+	),
+	'↔': (0,
+		lambda code: code.mirror('↔')
+	),
+	'∕': (0,
+		lambda code: code.mirror('∕')
+	),
+	'∖': (0,
+		lambda code: code.mirror('∖')
+	),
+	'↥': (1,
+		lambda code, x: code.set_delta((0, 0, -bool(x)))
+	),
+	'↧': (1,
+		lambda code, x: code.set_delta((0, 0, bool(x)))
+	),
+	'j': (1,
+		lambda code, x: code.set_delta(code.ip_delta ** x)
+	),
+	'J': (3,
+		lambda code, x, y, z: code.set_delta((x, y, z))
+	),
+
 }
+
+class Tuple(tuple):
+	def __pow__(self, integer):
+		return tuple(map(lambda a: a * integer, self))
 
 class Stack(list):
 	def push(self, *values):
@@ -13,7 +81,7 @@ class Stack(list):
 			if v in [True, False]:
 				v = int(v)
 		
-		if hasattr(v, '__iter__') and all(x in [True, False]for x in v):
+		if hasattr(v, '__iter__') and all(x in [True, False] for x in v):
 			v = list(map(int, v))
                 
 		try:
@@ -21,8 +89,12 @@ class Stack(list):
 		except:
 			self.append(v)
             
-	def pop(self, index = -1):
-		return super().pop(index)
+	def pop(self, index = -1, number = 1):
+		ret = []
+		for _ in range(number):
+			try: ret.append(super().pop(index))
+			except: ret.append(0)
+		return ret
     
 	def peek(self, index = -1):
 		return self[index]
@@ -104,20 +176,83 @@ class Code:
 			if ip[2] >= self.size: ip[2] = 0
 			if ip[2] < 0: ip[2] = self.size - 1
 		
-		self.ip = tuple(ip)
-		self.ip_delta = tuple(delta)
+		self.ip = Tuple(ip)
+		self.ip_delta = Tuple(delta)
+
+	def set_delta(self, delta):
+		self.ip_delta = Tuple(delta)
+
+	def mirror(self, option):
+		delta = [self.ip_delta[0], self.ip_delta[1]]
+		if option == '/':
+			if delta[0] == 0:
+				mult = delta[1]
+				delta = [mult, mult]
+			elif delta[1] == 0:
+				mult = delta[0]
+				delta = [-mult, -mult]
+			else:
+				sgn_x = math.copysign(1, delta[0])
+				sgn_y = math.copysign(1, delta[1])
+				if sgn_x == sgn_y:
+					mult = self.ip_delta[0]
+					delta = [-mult, 0]
+
+		if option == '\\':
+			if delta[0] == 0:
+				mult = delta[1]
+				delta = [mult, -mult]
+			elif delta[1] == 0:
+				mult = delta[0]
+				delta = [-mult, mult]
+			else:
+				sgn_x = math.copysign(1, delta[0])
+				sgn_y = math.copysign(1, delta[1])
+				if sgn_x == sgn_y:
+					mult = self.ip_delta[0]
+					delta = [-mult, 0]
+
+		if option == '↕':
+			if delta[1] != 0:
+				delta[1] = -delta[1]
+
+		if option == '↔':
+			if delta[0] != 0:
+				delta[0] = -delta[0]
+
+		if option == '∕':
+			if all(delta):
+				return delta ** -1
+			delta = [-delta[1], delta[0]]
+
+		if option == '∖':
+			if all(delta):
+				return delta ** -1
+			delta = delta[::-1]
+		
+		self.set_delta(delta + [0])
 
 	def run_cmd(self, char):
-		func, arity = commands[char]
+		# arity, func = commands[char]
+		try:
+			arity, func = commands[char]
+		except:
+			arity, func = commands['.']
+		args = self.stack.pop(number = arity)
+		ret = func(self, *args)
 
 def execlevels(code, argv, explicit, debug):
 	active_char = code.get()
-	while code.running(active_char):
+	count = 0
+	while code.running(active_char) and count < 1000:
+		count += 1
+		code.run_cmd(active_char)
 		if debug:
 			print(active_char, code.ip, code.ip_delta, code.stack, code.stacks)
-		code.run_cmd(active_char)
 		code.move()
 		active_char = code.get()
+	if debug:
+		print(active_char, code.ip, code.ip_delta, code.stack, code.stacks)
 
 def read_file(filename):
 	char = chr(random.randrange(33, 128))
@@ -193,4 +328,5 @@ if __name__ == '__main__':
 
 	levels = Code(*map(pad, levels, itertools.cycle([size])))
 	print(levels, inputs, explicit, debug)
+
 	execlevels(levels, inputs, explicit, debug)
