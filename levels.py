@@ -4,72 +4,139 @@ import math
 import random
 import sys
 
+code_page = r'''
+→←↓↑↖↗↘↙⇑␉␊⇓↕↔∕∖
+↥↧≤≥¦§°±Þþß⍶⍷⍸⍹✸
+ !"#$%&'()*+,-./
+0123456789:;<=>?
+@ABCDEFGHIJKLMNO
+PQRSTUVWXYZ[\]^_
+`abcdefghijklmno
+pqrstuvwxyz{|}~¡
+×ĀĄĈĐĖĚĜĤĪĴĶĹŁŇŌ
+ŒØŘŠŤŬŮŴÝŶŽ‼⁇⁈⁉‽
+÷āąĉđėěĝĥīĵķĺłňō
+œøřšťŭůŵýŷž¿©®ªº
+⁰¹²³⁴⁵⁶⁷⁸⁹‘’‚‛‹›
+₀₁₂₃₄₅₆₇₈₉“”„‟«»
+αβγδεζηθικλμνΔΘΛ
+ξοπρςστυφχψωΞΣΨΩ
+'''
+
+code_page = code_page.replace('\n', '').replace('␊', '\n').replace('␉', '\t')
+cp = list(code_page)
+
 commands = {
 
-	'.':(0, lambda code: code),
+	'.':(0, lambda code: None),
+	'✸':(0, lambda code: None),
 
 	'→': (0,
 		lambda code: code.set_delta((1, 0, 0))
 	),
+
 	'←': (0,
 		lambda code: code.set_delta((-1, 0, 0))
 	),
+
 	'↓': (0,
 		lambda code: code.set_delta((0, 1, 0))
 	),
+
 	'↑': (0,
 		lambda code: code.set_delta((0, -1, 0))
 	),
+
 	'↖': (0,
 		lambda code: code.set_delta((-1, -1, 0))
 	),
+
 	'↗': (0,
 		lambda code: code.set_delta((1, -1, 0))
 	),
+
 	'↘': (0,
 		lambda code: code.set_delta((1, 1, 0))
 	),
+
 	'↙': (0,
 		lambda code: code.set_delta((-1, 1, 0))
 	),
+
 	'⇑': (0,
 		lambda code: code.set_delta((0, 0, -1))
 	),
+
 	'⇓': (0,
 		lambda code: code.set_delta((0, 0, 1))
 	),
+
 	'/': (0,
 		lambda code: code.mirror('/')
 	),
+
 	'\\':(0,
 		lambda code: code.mirror('\\')
 	),
+
 	'↕': (0,
 		lambda code: code.mirror('↕')
 	),
+
 	'↔': (0,
 		lambda code: code.mirror('↔')
 	),
+
 	'∕': (0,
 		lambda code: code.mirror('∕')
 	),
+
 	'∖': (0,
 		lambda code: code.mirror('∖')
 	),
+
 	'↥': (1,
 		lambda code, x: code.set_delta((0, 0, -bool(x)))
 	),
+
 	'↧': (1,
 		lambda code, x: code.set_delta((0, 0, bool(x)))
 	),
-	'j': (1,
-		lambda code, x: code.set_delta(code.ip_delta ** x)
+
+	'≤': (2,
+		lambda code, x, y: x <= y,
 	),
+
+	'≥': (2,
+		lambda code, x, y: x >= y,
+	),
+
 	'J': (3,
 		lambda code, x, y, z: code.set_delta((x, y, z))
 	),
 
+	'j': (1,
+		lambda code, x: code.set_delta(code.ip_delta ** x)
+	),
+
+	'Ĵ': (2,
+		lambda code, x, y: code.set_delta((x, y, 0))
+	),
+
+	'ĵ': (1,
+		lambda code, x: code.set_delta((code.ip_delta[0] * x, code.ip_delta[1] * x, 0))
+	),
+
 }
+
+def flatten(array):
+	ret = []
+	for elem in array:
+		if isinstance(elem, list):
+			ret += flatten(elem)
+		else:
+			ret.append(elem)
+	return ret
 
 class Tuple(tuple):
 	def __pow__(self, integer):
@@ -83,6 +150,9 @@ class Stack(list):
 		
 		if hasattr(v, '__iter__') and all(x in [True, False] for x in v):
 			v = list(map(int, v))
+
+		if v is None:
+			return
                 
 		try:
 			self.append(v.replace("'",'"'))
@@ -129,7 +199,7 @@ class Code:
 		for level in self.levels:
 			level = '\n'.join(map(''.join, level))
 			out.append(level)
-		return str(tuple(out))
+		return 'Code' + str(tuple(out))
 
 	@property
 	def stack(self):
@@ -149,6 +219,7 @@ class Code:
 			char = chr(char)
 		char = str(char)[0]
 		self.levels[z][y][x] = char
+		return None
 
 	def running(self, char):
 		if char == '@':
@@ -178,9 +249,21 @@ class Code:
 		
 		self.ip = Tuple(ip)
 		self.ip_delta = Tuple(delta)
+		return None
 
 	def set_delta(self, delta):
 		self.ip_delta = Tuple(delta)
+		return None
+
+	def find_start(self):
+		char = '✸'
+		for z, lvl in enumerate(self.levels):
+			for y, row in enumerate(lvl):
+				for x, cell in enumerate(row):
+					if cell == char:
+						char = None
+						self.ip = Tuple((x, y, z))
+		return None
 
 	def mirror(self, option):
 		delta = [self.ip_delta[0], self.ip_delta[1]]
@@ -231,6 +314,7 @@ class Code:
 			delta = delta[::-1]
 		
 		self.set_delta(delta + [0])
+		return None
 
 	def run_cmd(self, char):
 		# arity, func = commands[char]
@@ -241,10 +325,17 @@ class Code:
 		args = self.stack.pop(number = arity)
 		ret = func(self, *args)
 
+		if ret is not None:
+			self.stacks[self.stack_index].push(ret)
+		return None
+
 def execlevels(code, argv, explicit, debug):
+	code.find_start()
 	active_char = code.get()
 	count = 0
+	path = ''
 	while code.running(active_char) and count < 1000:
+		path += active_char
 		count += 1
 		code.run_cmd(active_char)
 		if debug:
@@ -253,12 +344,20 @@ def execlevels(code, argv, explicit, debug):
 		active_char = code.get()
 	if debug:
 		print(active_char, code.ip, code.ip_delta, code.stack, code.stacks)
+	return path + active_char
 
-def read_file(filename):
-	char = chr(random.randrange(33, 128))
-	return ((char * 3 + '\n') * 3)[:-1]
+def read_file(filename, encoding = 'utf'):
+	if encoding == 'utf':
+		func = chr
+	if encoding == 'levels':
+		func = lambda i: code_page[i]
+
 	with open(filename, 'rb') as file:
-		return file.read()
+		x = list(file.read())
+	string = ''
+	for c in x:
+		string += func(c)
+	return string
 
 def eval_(arg):
 	try: return eval(arg)
@@ -276,36 +375,44 @@ if __name__ == '__main__':
 
 	parser.add_argument('--size', help = 'Specify size of program cube', required = True, metavar = 'SIZE', type = int)
 
-	getcode = parser.add_mutually_exclusive_group()
+	getcode = parser.add_mutually_exclusive_group(required = True)
 	getcode.add_argument('-f', '--file', help = 'Read each level from a .lv file', action = 'store_true')
 	getcode.add_argument('-c', '--cmd', help = 'Read each level from the command line', action = 'store_true')
 	getcode.add_argument('-t', '--tio', help = 'Enter TIO mode for code entry', action = 'store_true')
 
-	parser.add_argument('-u', '--utf', help = 'Read each file as a UTF file', action = 'store_true')
-	parser.add_argument('-l', '--levels', help = 'Read each file in the Levels codepage', action = 'store_true')
+	getencoding = parser.add_mutually_exclusive_group(required = True)
+	getencoding.add_argument('-u', '--utf', help = 'Read each file as a UTF file', action = 'store_true')
+	getencoding.add_argument('-l', '--levels', help = 'Read each file in the Levels codepage', action = 'store_true')
+
 	parser.add_argument('-b', '--cube', help = 'Take a single file and repeat into a cube', action = 'store_true')
 	parser.add_argument('-e', '--empty', help = 'Take a single file and append empty levels to form a cube', action = 'store_true')
 	parser.add_argument('-x', '--explicit', help = 'Turn off implicit input/output', action = 'store_true')
 	parser.add_argument('-d', '--debug', help = 'Output debug information to STDERR after each command', action = 'store_true')
+	parser.add_argument('-s', '--start', help = 'Set specific start point', nargs = 3, type = int)
 
 	parser.add_argument('progs_input', nargs = '*')
 
 	settings = parser.parse_args()
-	size = settings.size - settings.tio
+	size = settings.size
 	explicit = settings.explicit
 	debug = settings.debug
 	print(settings)
 
+	if settings.utf:
+		enc = 'utf'
+	if settings.levels:
+		enc = 'levels'
+
 	if settings.cube:
 		levels = settings.progs_input[:1] * size
 		if settings.file:
-			levels = list(map(read_file, levels))
+			levels = list(map(read_file, levels, itertools.cycle([enc])))
 		inputs = list(map(eval_, settings.progs_input[1:]))
 
 	elif settings.empty:
 		levels = settings.progs_input[:1]
 		if settings.file:
-			levels = list(map(read_file, levels))
+			levels = list(map(read_file, levels, itertools.cycle([enc])))
 		levels += [(('.' * size + '\n') * size)[:-1]] * (size - 1)
 		inputs = list(map(eval_, settings.progs_input[1:]))
 
@@ -313,20 +420,23 @@ if __name__ == '__main__':
 		levels = settings.progs_input[:size]
 		inputs = list(map(eval_, settings.progs_input[size:]))
 		if settings.file:
-			levels = list(map(read_file, levels))
+			levels = list(map(read_file, levels, itertools.cycle([enc])))
 		if settings.tio:
-			levels = [open('.code.tio').read()] + levels
+			levels[0] = open(levels[0]).read()
 
 	conds = [len(levels) >= size, True, True]
 	for i, lvl in enumerate(levels):
 		if len(lvl.splitlines()) > size:
 			conds[1] = False
-		conds[2] = not any(len(line) < size for line in lvl.splitlines())
+		conds[2] = not any(len(line) > size for line in lvl.splitlines())
 	if not all(conds):
 		print('SizeError: Code must be in the shape of a cube size {}'.format(size), file = sys.stderr)
 		exit(1)
 
 	levels = Code(*map(pad, levels, itertools.cycle([size])))
 	print(levels, inputs, explicit, debug)
+	if settings.start:
+		levels.ip = Tuple(settings.start)
 
-	execlevels(levels, inputs, explicit, debug)
+	code_path = execlevels(levels, inputs, explicit, debug)
+	print('Code executed: {}'.format(code_path.replace('\n', '␤')), file = sys.stderr)
