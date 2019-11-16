@@ -6,3 +6,12 @@ Given the difficulty of representing a 3D cube in 2D ASCII, the program input fo
     python levels.py --size=3 --file --utf file.lv1 file.lv2 file.lv3 10 20
 
 The `--size` flag is required, every other option can be swapped out for another, or removed entirely.
+
+Levels is written in Python 3.7, and some functions (e.g. `math.gcd`) may not work if run in earlier versions.
+
+Standard invocations are
+
+    python levels.py --size=<SIZE> --file --utf <...FILES...> <...ARGS...>
+    python levels.py --size=<SIZE> --cmd --utf <...CODE...> <...ARGS...>
+    
+For running files and commands line arguments respectively.
