@@ -1739,14 +1739,14 @@ def main(settings):
 
     if settings.cube and not settings.strict:
         levels = settings.progs_input[:1] * size
-        if settings.file:
+        if settings.file or settings.tio:
             levels = list(map(read_file, level_sort(levels), itertools.cycle([enc])))
             pres = levels.copy()
         inputs = list(map(eval_, settings.progs_input[1:]))
 
     elif settings.empty and not settings.strict:
         levels = settings.progs_input[:1]
-        if settings.file:
+        if settings.file or settings.tio:
             levels = list(map(read_file, level_sort(levels), itertools.cycle([enc])))
             pres = levels.copy()
         levels += [(('.' * size + '\n') * size)[:-1]] * (size - 1)
@@ -1758,9 +1758,8 @@ def main(settings):
         if settings.file:
             levels = list(map(read_file, level_sort(levels), itertools.cycle([enc])))
         pres = levels.copy()
-
-    if settings.tio:
-        levels[0] = open(levels[0]).read()
+        if settings.tio:
+            levels[0] = open(levels[0]).read()
 
     if settings.strict:
         compare = lambda x, y: x != y
