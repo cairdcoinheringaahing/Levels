@@ -1735,6 +1735,8 @@ def main(settings):
     if settings.levels:
         enc = 'levels'
 
+    print(settings.progs_input)
+
     if settings.cube and not settings.strict:
         levels = settings.progs_input[:1] * size
         if settings.file:
@@ -1755,14 +1757,17 @@ def main(settings):
         inputs = list(map(eval_, settings.progs_input[size:]))
         if settings.file:
             levels = list(map(read_file, level_sort(levels), itertools.cycle([enc])))
-        if settings.tio:
-            levels[0] = open(levels[0]).read()
         pres = levels.copy()
+
+    if settings.tio:
+        levels[0] = open(levels[0]).read()
 
     if settings.strict:
         compare = lambda x, y: x != y
     else:
         compare = lambda x, y: x > y
+
+    print(levels)
 
     conds = [len(levels) >= size, True, True]
     for i, lvl in enumerate(levels):
