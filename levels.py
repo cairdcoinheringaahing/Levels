@@ -3,7 +3,6 @@ import functools
 import itertools
 import math
 import random
-import re
 import sys
 
 if __name__ == '__main__':
@@ -656,7 +655,7 @@ commands = {
 
     'k': (2,
           lambda code, x, y: x[y % len(x)],
-          'Find the yth element of x (modular)',
+          'Find the yth element of x',
     ),
 
     'l': (0,
@@ -862,12 +861,7 @@ commands = {
           'Deduplicate',
     ),
 
-    # Ů
-
-    'Ŵ': (0,
-          lambda code: code.go(),
-          'Nest then execute all paused functions',
-    ),
+    # ŮŴ
 
     'Ý': (1,
           lambda code, x: x[0],
@@ -914,37 +908,21 @@ commands = {
           'x ÷ y',
     ),
 
-    'ā': (0,
-          lambda code: code.rerun(),
-          'Rerun the last command',
-    ),
-
-    'ą': (1,
-          lambda code, x: code.rerun(x),
-          'Rerun the last x commands',
-    ),
+    # āą
 
     'ĉ': (3,
           lambda code, x, y, z: code.set(x, y, z),
           'Clear character at (x, y, z)',
     ),
 
-    'đ': (2,
-          lambda code, x, y: list(map(list, enumerate(x, y))),
-          'Enumerate from y',
-    ),
+    # đ
 
     'ė': (1,
           lambda code, x: list(map(list, enumerate(x))),
           'Enumerate',
     ),
 
-    'ě': (1,
-          lambda code, x: list(map(list, enumerate(x, 1))),
-          'Enumerate from 1',
-    ),
-
-    # ĝĥī
+    # ěĝĥī
 
     'ĵ': (1,
           lambda code, x: code.set_delta((code.ip_delta[0] * x, code.ip_delta[1] * x, 0)),
@@ -1008,12 +986,7 @@ commands = {
           'Filter x on y',
     ),
 
-    'ŵ': (0,
-          lambda code: code.wait(),
-          'Turn on function nesting',
-    ),
-
-    # ýŷ
+    # ŵýŷ
 
     'ž': (2,
           lambda code, x, y: list(map(list, zip(x, y))),
@@ -1219,10 +1192,6 @@ commands = {
 
 }
 
-# print(len(code_page) - len(commands))
-
-# 41 unused characters
-
 product = lambda a: functools.reduce(operator.mul, a)
 
 def flatten(array):
@@ -1336,8 +1305,6 @@ class Code:
         self.size = len(self.levels)
         self.stacks = [Stack() for _ in range(self.size)]
         self.stack_index = 0
-        self.cmd_stack = Stack()
-        self.commands = []
         
         self.ip = (0, 0, 0)
         self.ip_delta = (1, 0, 0)
@@ -1347,7 +1314,6 @@ class Code:
         self.map_over = False
         self.debug = False
         self.quit = False
-        self.waiting = False
         
         self.inputs = inputs
         self.register = 0
@@ -1377,26 +1343,6 @@ class Code:
 
     def set_stack(self, array):
         self.stacks[self.stack_index] = Stack(array)
-
-    def wait(self):
-        self.waiting = True
-
-    def go(self):
-        to_run = list(self.cmd_stack)
-        self.cmd_stack = Stack()
-        self.waiting = False
-
-        ret = run_cmd(to_run.pop(), attrdict = True)
-        while to_run:
-            self.stack.push(ret)
-            ret = run_cmd(to_run.pop(), attrdict = True)
-
-        return ret
-
-    def rerun(self, number = 1):
-        cmds = self.commands[:-1][:number]
-        for cmd in cmds:
-            self.run_cmd(*cmd)
 
     def get(self, x = None, y = None, z = None):
         if x is y is z is None:
@@ -1566,11 +1512,9 @@ class Code:
         self.set_delta(delta + [0])
         return None
 
-    def run_cmd(self, char, attrdict = False):
+    def run_cmd(self, char):
         if self.debug:
             print(char, self.ip, self.ip_delta, self.stack, self.stacks, end = ' ', file = sys.stderr)
-
-        self.commands.append((char, attrdict))
             
         if char == '"':
             self.string = not self.string
@@ -1595,15 +1539,7 @@ class Code:
             print('Unknown command:', char, file = sys.stderr)
             return None
 
-        if self.waiting:
-            self.cmd_stack.push(commands[char])
-            return None
-
-        if attrdict:
-            arity, func, *options, description = char
-        else:
-            arity, func, *options, description = commands[char]
-            
+        arity, func, *options, description = commands[char]
         if options: option = options[0]
         else: option = None
 
@@ -1655,25 +1591,6 @@ def execlevels(code, argv, debug, limit, explicit):
         pass
     
     return path
-
-def level_sort(files):
-    if not any(re.search(r'lv\d+', file.split('.')[1])for file in files):
-        return files
-    
-    sort = [None] * len(files)
-    
-    for index, file in enumerate(files):
-        end = file.split('.')[1]
-        if re.search(r'lv\d+', end):
-            index = int(re.findall(r'lv(\d+)', end)[0]) - 1
-            
-        if sort[index] is None:
-            sort[index] = file
-        else:
-            index = min([i for i, v in enumerate(sort) if v is None])
-            sort[index] = file
-
-    return sort
 
 def read_file(filename, encoding = 'utf'):
     if encoding == 'utf':
@@ -1735,19 +1652,17 @@ def main(settings):
     if settings.levels:
         enc = 'levels'
 
-    print(settings.progs_input)
-
     if settings.cube and not settings.strict:
         levels = settings.progs_input[:1] * size
-        if settings.file or settings.tio:
-            levels = list(map(read_file, level_sort(levels), itertools.cycle([enc])))
+        if settings.file:
+            levels = list(map(read_file, levels, itertools.cycle([enc])))
             pres = levels.copy()
         inputs = list(map(eval_, settings.progs_input[1:]))
 
     elif settings.empty and not settings.strict:
         levels = settings.progs_input[:1]
-        if settings.file or settings.tio:
-            levels = list(map(read_file, level_sort(levels), itertools.cycle([enc])))
+        if settings.file:
+            levels = list(map(read_file, levels, itertools.cycle([enc])))
             pres = levels.copy()
         levels += [(('.' * size + '\n') * size)[:-1]] * (size - 1)
         inputs = list(map(eval_, settings.progs_input[1:]))
@@ -1756,17 +1671,15 @@ def main(settings):
         levels = settings.progs_input[:size]
         inputs = list(map(eval_, settings.progs_input[size:]))
         if settings.file:
-            levels = list(map(read_file, level_sort(levels), itertools.cycle([enc])))
-        pres = levels.copy()
+            levels = list(map(read_file, levels, itertools.cycle([enc])))
         if settings.tio:
             levels[0] = open(levels[0]).read()
+        pres = levels.copy()
 
     if settings.strict:
         compare = lambda x, y: x != y
     else:
         compare = lambda x, y: x > y
-
-    print(levels)
 
     conds = [len(levels) >= size, True, True]
     for i, lvl in enumerate(levels):
